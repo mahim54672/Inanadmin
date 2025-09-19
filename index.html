@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Panel - Istiak Ahmmed Enan</title>
+<style>
+body{margin:0;padding:0;font-family:Arial,sans-serif;background:#f0f0f0;}
+header{background:#222;color:white;padding:15px;text-align:center;}
+header h1{margin:0;font-size:28px;}
+.container{max-width:1200px;margin:20px auto;padding:10px;}
+.section{background:white;padding:15px;margin-bottom:20px;border-radius:8px;box-shadow:0 2px 5px rgba(0,0,0,0.1);}
+.section h2{margin-top:0;}
+input,textarea,select{width:100%;padding:8px;margin:5px 0;border-radius:5px;border:1px solid #ccc;}
+button{padding:8px 12px;margin:5px;cursor:pointer;border:none;border-radius:5px;background:#222;color:white;}
+button:hover{background:#555;}
+.card{background:#f9f9f9;padding:10px;margin:10px 0;border-radius:8px;display:flex;align-items:center;justify-content:space-between;}
+.card img{height:60px;width:80px;object-fit:cover;border-radius:5px;margin-right:10px;}
+.card-info{flex:1;}
+.card-info h3{margin:0;}
+.card-info p{margin:5px 0;font-size:14px;color:#555;}
+.card-actions button{margin-left:5px;}
+.dashboard{display:flex;flex-wrap:wrap;justify-content:space-between;}
+.dash-card{background:#222;color:white;padding:15px;border-radius:8px;flex:1;margin:10px;min-width:150px;text-align:center;}
+@media(max-width:768px){.dashboard{flex-direction:column;}.card{flex-direction:column;align-items:flex-start;}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Admin Panel - Istiak Ahmmed Enan</h1>
+</header>
+
+<div class="container">
+
+<!-- Dashboard -->
+<div class="section">
+  <h2>Dashboard</h2>
+  <div class="dashboard">
+    <div class="dash-card" id="total-posts">Posts: 0</div>
+    <div class="dash-card" id="total-categories">Categories: 0</div>
+    <div class="dash-card" id="total-messages">Messages: 0</div>
+  </div>
+</div>
+
+<!-- Post Management -->
+<div class="section">
+  <h2>Manage Posts</h2>
+  <input type="text" id="post-title" placeholder="Post Title">
+  <input type="text" id="post-thumbnail" placeholder="Thumbnail URL">
+  <textarea id="post-content" placeholder="Post Content"></textarea>
+  <select id="post-category"></select>
+  <button onclick="addPost()">Add Post</button>
+
+  <input type="text" id="search-post" placeholder="Search posts..." onkeyup="searchPostsAdmin()">
+
+  <div id="post-list-admin"></div>
+</div>
+
+<!-- Category Management -->
+<div class="section">
+  <h2>Manage Categories</h2>
+  <input type="text" id="category-name" placeholder="Category Name">
+  <button onclick="addCategory()">Add Category</button>
+  <div id="category-list"></div>
+</div>
+
+<!-- Contact Messages -->
+<div class="section">
+  <h2>Contact Messages</h2>
+  <input type="text" id="search-contact" placeholder="Search messages..." onkeyup="searchContacts()">
+  <div id="contact-list"></div>
+</div>
+
+<!-- Firebase v8 CDN -->
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyC8iKwJ06g29H8qv1xDD1mKDN5uIIKiPaY",
+  authDomain: "istiak-ahmmed-enan.firebaseapp.com",
+  databaseURL: "https://istiak-ahmmed-enan-default-rtdb.firebaseio.com",
+  projectId: "istiak-ahmmed-enan",
+  storageBucket: "istiak-ahmmed-enan.firebasestorage.app",
+  messagingSenderId: "969564579404",
+  appId: "1:969564579404:web:c0abe00858e71d5c18b6e9",
+  measurementId: "G-DHT284WQHQ"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const postsRef = db.ref('posts');
+const categoriesRef = db.ref('categories');
+const contactsRef = db.ref('contacts');
+
+const postTitle = document.getElementById("post-title");
+const postThumb = document.getElementById("post-thumbnail");
+const postContent = document.getElementById("post-content");
+const postCategory = document.getElementById("post-category");
+const postListAdmin = document.getElementById("post-list-admin");
+const categoryList = document.getElementById("category-list");
+const contactList = document.getElementById("contact-list");
+
+let allPostsAdmin = [];
+let allCategories = [];
+let allContacts = [];
+
+// Dashboard
+function updateDashboard(){
+  document.getElementById("total-posts").innerText = "Posts: " + allPostsAdmin.length;
+  document.getElementById("total-categories").innerText = "Categories: " + allCategories.length;
+  document.getElementById("total-messages").innerText = "Messages: " + allContacts.length;
+}
+
+// Categories
+categoriesRef.on('value', snapshot=>{
+  allCategories=[];
+  postCategory.innerHTML="<option value=''>Select Category</option>";
+  categoryList.innerHTML="";
+  snapshot.forEach(child=>{
+    const cat = child.val();
+    const key = child.key;
+    allCategories.push({key,name:cat.name});
+    postCategory.innerHTML += `<option value="${cat.name}">${cat.name}</option>`;
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`<div>${cat.name}</div><div><button onclick="deleteCategory('${key}')">Delete</button></div>`;
+    categoryList.appendChild(div);
+  });
+  updateDashboard();
+});
+
+function addCategory(){
+  const name=document.getElementById("category-name").value;
+  if(name){
+    categoriesRef.push({name});
+    document.getElementById("category-name").value="";
+  }else alert("Enter category name!");
+}
+
+function deleteCategory(key){
+  categoriesRef.child(key).remove();
+}
+
+// Posts
+postsRef.on('value', snapshot=>{
+  allPostsAdmin=[];
+  postListAdmin.innerHTML="";
+  snapshot.forEach(child=>{
+    const post=child.val();
+    const key=child.key;
+    allPostsAdmin.push({...post,key});
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`${post.thumbnail?`<img src="${post.thumbnail}">`:""}<div class="card-info"><h3>${post.title}</h3><p>${post.content.substring(0,60)}...</p><p>Category: ${post.category||''}</p></div><div class="card-actions"><button onclick="editPost('${key}')">Edit</button><button onclick="deletePost('${key}')">Delete</button></div>`;
+    postListAdmin.appendChild(div);
+  });
+  updateDashboard();
+});
+
+function addPost(){
+  const title=postTitle.value;
+  const content=postContent.value;
+  const thumbnail=postThumb.value;
+  const category=postCategory.value;
+  if(title && content){
+    postsRef.push({title,content,thumbnail,category});
+    postTitle.value=""; postContent.value=""; postThumb.value=""; postCategory.value="";
+  }else alert("Fill Title & Content!");
+}
+
+function deletePost(key){
+  postsRef.child(key).remove();
+}
+
+function editPost(key){
+  const post = allPostsAdmin.find(p=>p.key===key);
+  const newTitle = prompt("Edit Title", post.title);
+  const newContent = prompt("Edit Content", post.content);
+  const newThumb = prompt("Edit Thumbnail URL", post.thumbnail||"");
+  const newCategory = prompt("Edit Category", post.category||"");
+  if(newTitle && newContent){
+    postsRef.child(key).update({title:newTitle,content:newContent,thumbnail:newThumb,category:newCategory});
+  }
+}
+
+// Search Posts
+function searchPostsAdmin(){
+  const keyword=document.getElementById("search-post").value.toLowerCase();
+  postListAdmin.innerHTML="";
+  allPostsAdmin.filter(p=>p.title.toLowerCase().includes(keyword) || p.content.toLowerCase().includes(keyword)).forEach(post=>{
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`${post.thumbnail?`<img src="${post.thumbnail}">`:""}<div class="card-info"><h3>${post.title}</h3><p>${post.content.substring(0,60)}...</p><p>Category: ${post.category||''}</p></div><div class="card-actions"><button onclick="editPost('${post.key}')">Edit</button><button onclick="deletePost('${post.key}')">Delete</button></div>`;
+    postListAdmin.appendChild(div);
+  });
+}
+
+// Contacts
+contactsRef.on('value', snapshot=>{
+  allContacts=[];
+  contactList.innerHTML="";
+  snapshot.forEach(child=>{
+    const msg = child.val();
+    const key = child.key;
+    allContacts.push({...msg,key});
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`<div class="card-info"><h3>${msg.name}</h3><p>${msg.email}</p><p>${msg.message}</p></div><div class="card-actions"><button onclick="deleteContact('${key}')">Delete</button></div>`;
+    contactList.appendChild(div);
+  });
+  updateDashboard();
+});
+
+function deleteContact(key){
+  contactsRef.child(key).remove();
+}
+
+function searchContacts(){
+  const keyword=document.getElementById("search-contact").value.toLowerCase();
+  contactList.innerHTML="";
+  allContacts.filter(c=>c.name.toLowerCase().includes(keyword) || c.email.toLowerCase().includes(keyword) || c.message.toLowerCase().includes(keyword)).forEach(msg=>{
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`<div class="card-info"><h3>${msg.name}</h3><p>${msg.email}</p><p>${msg.message}</p></div><div class="card-actions"><button onclick="deleteContact('${msg.key}')">Delete</button></div>`;
+    contactList.appendChild(div);
+  });
+}
+</script>
+
+</body>
+</html>
